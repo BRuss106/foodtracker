@@ -28,6 +28,7 @@ const FILLER_PATTERNS = [
   /contains\s+one\s+or\s+more\s+of\s+the\s+following:?/gi,
   /one\s+or\s+more\s+of\s+the\s+following:?/gi,
   /\bmade\s+with:?/gi,
+  /\b(?:to|for)\s+(?:preserve|maintain|retain|protect|promote)\s+(?:freshness|flavou?r|colou?r|quality)\b/gi,
 ];
 
 // Plain water is in so many foods that it only adds noise to the trigger list.
@@ -72,17 +73,62 @@ function splitTop(text) {
   return parts;
 }
 
+// The word INGREDIENTS, allowing for common photo-reading slips
+// (l/1/| for i, 3 for e, stray spaces, missing final s).
+const HEADING_RE = /(?:^|[^a-z])([il1|!]\s?n\s?g\s?r\s?[e3]\s?d\s?[il1|!]\s?[e3]\s?n\s?t\s?s?)(?![a-z])\s*([:;.,\-]?)/gi;
+
+// Text that comes after the ingredient list on a package.
+const SECTION_END_RE = new RegExp("\\b(?:" + [
+  "may (?:also )?contain", "produced in a", "processed in a", "made in a facility", "manufactured (?:in|on|by|for)",
+  "made on shared", "distributed by", "made by", "packed (?:by|in|for)", "produced by", "imported by",
+  "nutrition (?:facts|information)", "serving size", "servings per", "amount per", "calories", "daily value",
+  "keep (?:refrigerated|frozen|cool)", "refrigerate", "store (?:in|at|below)", "storage", "best (?:before|by)",
+  "use by", "sell by", "net (?:wt|weight)", "directions", "preparation", "cooking instructions",
+  "allergy advice", "questions", "www\\.", "product of", "warning", "recycle",
+].join("|") + ")", "i");
+
+// Find just the ingredient list inside text read from a whole package.
+// Returns { found, text } - found is false when there's no INGREDIENTS heading.
+function extractIngredientSection(text) {
+  const s = String(text || "");
+  const matches = [...s.matchAll(HEADING_RE)];
+  if (!matches.length) {
+    const end = s.search(SECTION_END_RE);
+    return { found: false, text: end > 0 ? s.slice(0, end) : s };
+  }
+  // Prefer a heading followed by a colon ("Ingredients:") over a passing mention.
+  const m = matches.find((x) => /[:;]/.test(x[2])) || matches[0];
+  let rest = s.slice(m.index + m[0].length);
+
+  // The list ends at the first full stop outside brackets, but a following
+  // "Contains: milk, soy." allergen sentence is kept.
+  let depth = 0, cut = rest.length;
+  for (let i = 0; i < rest.length; i++) {
+    const ch = rest[i];
+    if (ch === "(" || ch === "[") depth++;
+    else if (ch === ")" || ch === "]") depth = Math.max(0, depth - 1);
+    else if (ch === "." && depth === 0 && (i + 1 === rest.length || /\s/.test(rest[i + 1]))) {
+      if (/^\s*(?:contains|allergens?)\b/i.test(rest.slice(i + 1))) continue;
+      cut = i;
+      break;
+    }
+  }
+  rest = rest.slice(0, cut);
+  const end = rest.search(SECTION_END_RE);
+  if (end >= 0) rest = rest.slice(0, end);
+  return { found: true, text: rest.trim() };
+}
+
 function parseIngredients(text) {
   if (!text) return [];
   let s = String(text).replace(/(\w)-\s*\n\s*(\w)/g, "$1$2"); // words split across label lines
   s = s.split(/\s+/).join(" ");
   s = s.replace(/\[|\{/g, "(").replace(/\]|\}/g, ")");
-  const m = s.match(/ingredients?\s*:/i);
-  if (m) s = s.slice(m.index + m[0].length);
+  s = extractIngredientSection(s).text;
   // "May contain" / "processed in a facility" are cross-contact warnings.
   s = s.split(/\b(?:may contain|may also contain|produced in a|processed in a|made in a facility|manufactured in a|manufactured on|made on shared)\b/i)[0];
   // "Contains: milk, soy" lists real allergens - keep those as ingredients.
-  s = s.replace(/\bcontains\s*:/gi, ",");
+  s = s.replace(/\b(?:contains|allergens?)\s*:/gi, ",");
   for (const pat of FILLER_PATTERNS) s = s.replace(pat, ",");
   s = s.replace(/\band\/or\b/gi, ",");
   s = s.replace(/\.(?=\s|$)/g, ",");
@@ -226,4 +272,4 @@ function computeTriggers(data, kind = null, minHours = 2, maxHours = 48, now = D
   };
 }
 
-if (typeof module !== "undefined") module.exports = { parseIngredients, cleanName, computeTriggers, fisherGreater };
+if (typeof module !== "undefined") module.exports = { parseIngredients, extractIngredientSection, cleanName, computeTriggers, fisherGreater };

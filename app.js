@@ -257,8 +257,16 @@ $("#fdPhoto").addEventListener("change", async (e) => {
     });
     const text = result.data.text.trim();
     if (!text) { status.textContent = "Couldn't read any text. Try a closer, sharper photo in better light."; return; }
-    $("#fdPaste").value = text;
-    const found = await parseText(text);
+    // Keep only the "INGREDIENTS: ..." part of the package.
+    const section = extractIngredientSection(text.replace(/(\w)-\s*\n\s*(\w)/g, "$1$2").split(/\s+/).join(" "));
+    if (!section.found) {
+      $("#fdPaste").value = text;
+      setMethod("paste");
+      toast("Couldn't find the word INGREDIENTS. Edit the text, then tap Pull out ingredients.");
+      return;
+    }
+    $("#fdPaste").value = "Ingredients: " + section.text;
+    const found = await parseText(section.text);
     addChips(found);
     status.textContent = "";
     setMethod("paste");
