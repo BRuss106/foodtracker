@@ -39,7 +39,7 @@ function fmtDay(s) {
 let toastTimer;
 function toast(msg) {
   const t = $("#toast");
-  const ok = /saved|updated|added|restored|renamed|merged|found|read the label/i.test(msg);
+  const ok = /saved|updated|added|restored|renamed|merged|found|read the label|applied/i.test(msg);
   t.className = "toast" + (ok ? "" : " info");
   t.innerHTML = `<span class="check">${ok
     ? '<svg viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>'
@@ -56,14 +56,22 @@ function dayKey(d) {
   return `${x.getFullYear()}-${x.getMonth()}-${x.getDate()}`;
 }
 
+// Counts up (or down) to the new number, then gives it a little pop.
 function setStat(id, value) {
   const el = $(id);
-  if (el.textContent !== String(value)) {
-    el.textContent = value;
-    el.classList.remove("bump");
-    void el.offsetWidth; // restart the animation
-    el.classList.add("bump");
-  }
+  const from = Number(el.dataset.value || 0);
+  if (from === value && el.dataset.value !== undefined) return;
+  el.dataset.value = value;
+  const start = performance.now(), dur = 600;
+  const step = (t) => {
+    const p = Math.min(1, (t - start) / dur);
+    el.textContent = Math.round(from + (value - from) * (1 - Math.pow(1 - p, 3)));
+    if (p < 1) requestAnimationFrame(step);
+  };
+  requestAnimationFrame(step);
+  el.classList.remove("bump");
+  void el.offsetWidth; // restart the animation
+  el.classList.add("bump");
 }
 
 function renderHero() {
@@ -112,8 +120,12 @@ function splitTyped(text) {
 // ------------------------------------------------------------ tabs
 
 function showView(name) {
-  const tab = ["foods", "ingredients", "backup"].includes(name) ? "more" : name;
-  $$("#tabs button").forEach((b) => b.classList.toggle("active", b.dataset.view === tab));
+  const tab = ["foods", "ingredients", "backup", "appearance"].includes(name) ? "more" : name;
+  const tabButtons = $$("#tabs button");
+  tabButtons.forEach((b) => b.classList.toggle("active", b.dataset.view === tab));
+  // Slide the coloured pill and switch the whole app to this section's colours.
+  $("#tabs").style.setProperty("--ti", tabButtons.findIndex((b) => b.dataset.view === tab));
+  document.body.dataset.view = tab;
   $$(".view").forEach((v) => v.classList.toggle("active", v.id === "view-" + name));
   if (name === "timeline") loadTimeline();
   if (name === "triggers") loadTriggers();
@@ -121,6 +133,7 @@ function showView(name) {
   if (name === "ingredients") loadIngredients();
   if (name === "symptom") loadKinds();
   if (name === "backup") renderBackupInfo();
+  if (name === "appearance") renderThemes();
   window.scrollTo(0, 0);
 }
 $$("#tabs button").forEach((b) => b.addEventListener("click", () => showView(b.dataset.view)));
@@ -629,7 +642,7 @@ async function loadTimeline() {
     const delay = `style="animation-delay:${Math.min(n++, 12) * 35}ms"`;
     if (e.type === "meal") {
       const m = e.data;
-      html += `<div class="entry" ${delay}><div>
+      html += `<div class="entry m-${esc((m.label || "other").toLowerCase())}" ${delay}><div>
         <div class="time">${MEAL_EMOJI[m.label] || "🍽️"} ${esc(fmtTime(m.eaten_at))} · ${esc(m.label || "Meal")}</div>
         ${m.items.map((it) => `<div><b>${esc(it.name)}</b> <span class="muted small">${esc(it.ingredients.join(", "))}</span></div>`).join("")}
         ${m.notes ? `<div class="muted small">${esc(m.notes)}</div>` : ""}
@@ -638,7 +651,7 @@ async function loadTimeline() {
         <button class="small danger" data-act="del-meal" data-id="${m.id}">Delete</button></div></div>`;
     } else {
       const s = e.data;
-      html += `<div class="entry symptom" ${delay}><div>
+      html += `<div class="entry symptom" ${delay.slice(0, -1)};--dot:${sevColor(s.severity)}"><div>
         <div class="time">${symptomEmoji(s.kind)} ${esc(fmtTime(s.started_at))} · Symptom</div>
         <div><b>${esc(s.kind)}</b><span class="sev-pill" style="background:${sevColor(s.severity)}">${s.severity}/10</span></div>
         ${s.notes ? `<div class="muted small">${esc(s.notes)}</div>` : ""}
@@ -821,6 +834,44 @@ $("#ingList").addEventListener("change", async (e) => {
   catch (err) { toast(err.message); }
 });
 
+// ------------------------------------------------------------ themes
+
+const THEMES = [
+  { id: "aurora", name: "Aurora", desc: "Vibrant colour glows on deep navy. Follows the phone's light or dark mode.", bar: "#0a0f1f" },
+  { id: "pastel", name: "Pastel bento", desc: "Light and airy, with soft colour tiles and rounded type.", bar: "#fff4ea" },
+  { id: "neon", name: "Neon night", desc: "Dark glass panels with glowing electric edges.", bar: "#04050a" },
+  { id: "kitchen", name: "Warm kitchen", desc: "Cream paper, terracotta and olive, like a favourite recipe book.", bar: "#fbf4e8" },
+  { id: "editorial", name: "Bold editorial", desc: "Heavy type, flat bright blocks and thick black outlines.", bar: "#ffd400" },
+];
+
+function currentTheme() {
+  return document.documentElement.dataset.theme || "aurora";
+}
+
+function applyTheme(id) {
+  const theme = THEMES.find((t) => t.id === id) || THEMES[0];
+  document.documentElement.dataset.theme = theme.id;
+  document.querySelector('meta[name="theme-color"]').setAttribute("content", theme.bar);
+  try { localStorage.setItem("ft-theme", theme.id); } catch { /* private mode: just not remembered */ }
+}
+
+function renderThemes() {
+  const cur = currentTheme();
+  $("#themeGrid").innerHTML = THEMES.map((t, i) => `
+    <button class="theme-card${t.id === cur ? " active" : ""}" data-theme-id="${t.id}" style="animation-delay:${i * 50}ms">
+      <span class="mini ${t.id}"><i class="m-hero"></i><i class="m-card"></i><i class="m-btn"></i><i class="m-dot"></i></span>
+      <span><span class="tc-name">${esc(t.name)} <span class="tc-check">✓</span></span>
+        <span class="tc-desc">${esc(t.desc)}</span></span>
+    </button>`).join("");
+}
+$("#themeGrid").addEventListener("click", (e) => {
+  const card = e.target.closest("[data-theme-id]");
+  if (!card || card.dataset.themeId === currentTheme()) return;
+  applyTheme(card.dataset.themeId);
+  renderThemes();
+  toast(`${THEMES.find((t) => t.id === card.dataset.themeId).name} theme applied`);
+});
+
 // ------------------------------------------------------------ backup and export
 
 function stamp() {
@@ -901,6 +952,7 @@ async function start() {
   } catch {
     toast("Couldn't open saved data. Private Browsing can block it.");
   }
+  applyTheme(currentTheme());
   resetMealForm();
   resetSymptomForm();
   loadFoods();

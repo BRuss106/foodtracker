@@ -8,13 +8,19 @@
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-title" content="FoodTracker">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-  <meta name="theme-color" content="#0d5c55">
+  <meta name="theme-color" content="#0a0f1f">
   <link rel="apple-touch-icon" href="icon-180.png">
   <link rel="icon" href="icon-192.png">
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="themes.css">
+  <script>
+    // Apply the saved theme before the page draws, so it never flashes the wrong one.
+    try { document.documentElement.dataset.theme = localStorage.getItem("ft-theme") || "aurora"; }
+    catch (e) { document.documentElement.dataset.theme = "aurora"; }
+  </script>
 </head>
-<body>
+<body data-view="meal">
   <header class="hero">
     <div class="blob b1"></div><div class="blob b2"></div><div class="blob b3"></div>
     <div class="hero-inner">
@@ -27,6 +33,9 @@
           <div class="brand">FoodTracker</div>
           <div id="heroDate" class="hero-date"></div>
         </div>
+        <button class="palette-btn" data-goto="appearance" aria-label="Change theme" title="Change theme">
+          <svg viewBox="0 0 24 24"><path d="M12 3a9 9 0 1 0 0 18c1.1 0 1.8-.8 1.8-1.7 0-.5-.2-.9-.5-1.2-.3-.3-.5-.7-.5-1.2 0-1 .8-1.7 1.8-1.7H17a4 4 0 0 0 4-4C21 6.6 17 3 12 3Z"/><circle cx="7.5" cy="11" r="1.2"/><circle cx="10" cy="7" r="1.2"/><circle cx="15" cy="7" r="1.2"/></svg>
+        </button>
       </div>
       <h1 id="heroGreeting" class="greeting">Hello</h1>
       <div class="stats">
@@ -169,10 +178,18 @@
     <section id="view-more" class="view">
       <h2 class="view-title">More</h2>
       <div class="menu">
+        <button data-goto="appearance"><span class="menu-icon">🎨</span><span><b>Appearance</b><br><span class="small muted">Choose a theme</span></span><span class="chev">›</span></button>
         <button data-goto="foods"><span class="menu-icon">🍱</span><span><b>My foods</b><br><span class="small muted">Saved foods and their ingredients</span></span><span class="chev">›</span></button>
         <button data-goto="ingredients"><span class="menu-icon">🧪</span><span><b>Ingredients</b><br><span class="small muted">Fix and merge spellings</span></span><span class="chev">›</span></button>
         <button data-goto="backup"><span class="menu-icon">☁️</span><span><b>Backup</b><br><span class="small muted">Save or restore your log</span></span><span class="chev">›</span></button>
       </div>
+    </section>
+
+    <!-- APPEARANCE -->
+    <section id="view-appearance" class="view">
+      <button class="back" data-goto="more">‹ More</button>
+      <h2 class="view-title">Appearance</h2>
+      <div id="themeGrid" class="theme-grid"></div>
     </section>
 
     <!-- FOODS -->
@@ -219,6 +236,7 @@
   </main>
 
   <nav id="tabs" class="tabbar" aria-label="Sections">
+    <span class="tab-indicator" aria-hidden="true"></span>
     <button data-view="meal" class="active">
       <svg viewBox="0 0 24 24"><path d="M7 3v8M5 3v5a2 2 0 0 0 4 0V3M7 11v10"/><path d="M17 21V3c-2.2 1.2-3.5 3.6-3.5 6.5V13H17"/></svg>
       <span>Meal</span></button>

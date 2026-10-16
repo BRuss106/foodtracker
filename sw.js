@@ -1,8 +1,8 @@
 // Service worker: keeps the app working offline.
 // Bump VERSION whenever the app's files change so phones pick up the update.
-const VERSION = "foodtracker-v4";
+const VERSION = "foodtracker-v6";
 const APP_FILES = [
-  "./", "index.html", "style.css", "logic.js", "store.js", "app.js", "manifest.webmanifest",
+  "./", "index.html", "style.css", "themes.css", "logic.js", "store.js", "app.js", "manifest.webmanifest",
   "icon-180.png", "icon-192.png", "icon-512.png",
 ];
 // Photo-reading and scanner libraries are saved the first time they're used.
