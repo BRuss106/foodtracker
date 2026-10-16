@@ -3,7 +3,7 @@
 const VERSION = "foodtracker-v1";
 const APP_FILES = [
   "./", "index.html", "style.css", "logic.js", "store.js", "app.js", "manifest.webmanifest",
-  "icons/icon-180.png", "icons/icon-192.png", "icons/icon-512.png",
+  "icon-180.png", "icon-192.png", "icon-512.png",
 ];
 // Photo-reading and scanner libraries are saved the first time they're used.
 const LIBRARY_HOSTS = ["cdn.jsdelivr.net", "tessdata.projectnaptha.com"];

@@ -17,8 +17,8 @@ hosts it for free. Only the app's code is put online. Your log never is.
 2. Click **+** (top right) > **New repository**. Name it `foodtracker`, choose
    **Public**, and click **Create repository**.
 3. On the next page click **uploading an existing file**. Open the
-   `FoodTracker-Phone` folder, select everything in it (including the `icons`
-   folder), and drag it all onto the page. Click **Commit changes**.
+   `FoodTracker-Phone` folder, select everything in it except `Preview on PC.bat`,
+   and drag it all onto the page. Click **Commit changes**.
 4. Open the repository's **Settings** > **Pages**. Under "Branch" pick **main**
    and **/ (root)**, then click **Save**.
 5. Wait a minute or two, then refresh that page. It shows the address, like
@@ -71,4 +71,4 @@ Data entered there stays in that browser on the PC and isn't shared with the pho
 - `index.html`, `style.css`, `app.js`: the screens.
 - `store.js`: saves data on the device (IndexedDB), plus backup and restore.
 - `logic.js`: reads ingredient labels and works out likely triggers.
-- `sw.js`, `manifest.webmanifest`, `icons/`: make it installable and usable offline.
+- `sw.js`, `manifest.webmanifest`, `icon-*.png`: make it installable and usable offline.
