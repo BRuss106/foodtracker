@@ -1,0 +1,246 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>FoodTracker</title>
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-title" content="FoodTracker">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="theme-color" content="#2f7d6d">
+  <link rel="apple-touch-icon" href="icons/icon-180.png">
+  <link rel="icon" href="icons/icon-192.png">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header>
+    <h1>FoodTracker</h1>
+    <nav id="tabs">
+      <button data-view="meal" class="active">Log meal</button>
+      <button data-view="symptom">Log symptom</button>
+      <button data-view="timeline">Timeline</button>
+      <button data-view="triggers">Likely triggers</button>
+      <button data-view="foods">My foods</button>
+      <button data-view="ingredients">Ingredients</button>
+      <button data-view="backup">Backup</button>
+    </nav>
+  </header>
+
+  <main>
+    <button id="backupNudge" class="nudge hidden">Your log is only on this phone. Tap to save a backup.</button>
+    <!-- LOG MEAL -->
+    <section id="view-meal" class="view active">
+      <h2 id="mealTitle">Log a meal</h2>
+      <div class="card">
+        <div class="row">
+          <label>When <input type="datetime-local" id="mealAt"></label>
+          <label>Meal
+            <select id="mealLabel">
+              <option>Breakfast</option><option>Lunch</option><option>Dinner</option>
+              <option>Snack</option><option>Drink</option><option value="">Other</option>
+            </select>
+          </label>
+        </div>
+
+        <h3>What was in it?</h3>
+        <div class="search-wrap">
+          <input id="foodSearch" placeholder="Search my saved foods..." autocomplete="off">
+          <div id="foodResults" class="dropdown hidden"></div>
+        </div>
+        <button id="newFoodForMeal" class="secondary">+ Add a new food or ingredients</button>
+
+        <ul id="mealItems" class="items"></ul>
+        <p id="mealEmpty" class="muted">Nothing added yet.</p>
+
+        <label>Notes (optional) <textarea id="mealNotes" rows="2" placeholder="e.g. ate out, large portion, ate fast"></textarea></label>
+        <div class="actions">
+          <button id="saveMeal">Save meal</button>
+          <button id="cancelMealEdit" class="secondary hidden">Cancel editing</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- LOG SYMPTOM -->
+    <section id="view-symptom" class="view">
+      <h2 id="symptomTitle">Log a symptom</h2>
+      <div class="card">
+        <label>Symptom
+          <input id="symptomKind" list="kindList" placeholder="Pick one below or type your own">
+          <datalist id="kindList"></datalist>
+        </label>
+        <div id="kindButtons" class="quick"></div>
+        <label>When did it start? <input type="datetime-local" id="symptomAt"></label>
+        <label>How bad? <span id="sevValue" class="sev">5</span>/10
+          <input type="range" id="symptomSev" min="1" max="10" value="5">
+          <span class="scale"><span>1 mild</span><span>10 worst</span></span>
+        </label>
+        <label>Notes (optional) <textarea id="symptomNotes" rows="2" placeholder="e.g. lasted 3 hours, also had poor sleep"></textarea></label>
+        <div class="actions">
+          <button id="saveSymptom">Save symptom</button>
+          <button id="cancelSymptomEdit" class="secondary hidden">Cancel editing</button>
+        </div>
+      </div>
+      <p class="muted tip">Tip: the analysis treats "no symptom logged" as "felt fine", so try to log every episode, even mild ones.</p>
+    </section>
+
+    <!-- TIMELINE -->
+    <section id="view-timeline" class="view">
+      <div class="title-row">
+        <h2>Timeline</h2>
+        <button id="exportCsv" class="secondary">Export spreadsheet for the doctor</button>
+      </div>
+      <div id="timeline"></div>
+    </section>
+
+    <!-- TRIGGERS -->
+    <section id="view-triggers" class="view">
+      <h2>Likely triggers</h2>
+      <div class="notice">
+        These are <b>patterns in your log, not a diagnosis</b>. An ingredient showing up here means symptoms
+        happened more often after eating it. It does not prove it caused them. Bring this list to a doctor or
+        dietitian, who can help confirm it safely (for example with a supervised elimination diet).
+      </div>
+      <div class="card">
+        <div class="row">
+          <label>Symptom <select id="trigKind"></select></label>
+          <label>Reaction window
+            <select id="trigPreset">
+              <option value="0-6">Fast: 0 to 6 hours after eating</option>
+              <option value="2-48" selected>Typical: 2 to 48 hours</option>
+              <option value="24-72">Slow: 1 to 3 days</option>
+              <option value="custom">Custom...</option>
+            </select>
+          </label>
+          <label id="customWindow" class="hidden">From <input type="number" id="trigMin" value="2" min="0" step="1"> to
+            <input type="number" id="trigMax" value="48" min="1" step="1"> hours</label>
+        </div>
+        <label class="check"><input type="checkbox" id="trigAll"> Show every ingredient, not just the top ones</label>
+      </div>
+      <p id="trigSummary"></p>
+      <div id="trigTable"></div>
+      <details class="help">
+        <summary>How is this worked out?</summary>
+        <p>For every meal, the app checks whether the chosen symptom started inside the reaction window after it
+          (for example 2 to 48 hours later). Then for each ingredient it compares two numbers:</p>
+        <ul>
+          <li><b>After meals with it</b>: how often the symptom followed meals containing that ingredient.</li>
+          <li><b>After meals without it</b>: how often the symptom followed all other meals.</li>
+        </ul>
+        <p><b>Times more often</b> divides the first by the second (adjusted so a handful of meals can't give silly
+          numbers). <b>Before episodes</b> counts how many symptom episodes had that ingredient eaten in the window
+          beforehand. The <b>signal</b> label also uses a standard statistics test (Fisher's exact test) to judge
+          whether the difference could easily be luck.</p>
+        <p>Meals whose window hasn't finished yet (for example, today's dinner) are left out until it has.
+          Ingredients that are almost always eaten together can't be told apart; they're marked so you can try
+          eating them separately.</p>
+      </details>
+    </section>
+
+    <!-- FOODS -->
+    <section id="view-foods" class="view">
+      <div class="title-row">
+        <h2>My foods</h2>
+        <button id="newFood">+ New food</button>
+      </div>
+      <input id="foodsFilter" placeholder="Filter...">
+      <div id="foodsList"></div>
+    </section>
+
+    <!-- INGREDIENTS -->
+    <section id="view-ingredients" class="view">
+      <h2>Ingredients</h2>
+      <p class="muted">Labels and photos sometimes spell the same thing differently ("soya lecithin", "soy lecithin").
+        Merge duplicates here so the analysis counts them together. Renaming one to an existing name merges them too.</p>
+      <input id="ingFilter" placeholder="Filter...">
+      <div id="ingList"></div>
+    </section>
+
+    <!-- BACKUP -->
+    <section id="view-backup" class="view">
+      <h2>Backup</h2>
+      <div class="card">
+        <p>Everything is stored only on this phone. Nothing is sent anywhere. If the app is deleted or the
+          phone is lost, the log goes with it, so save a backup every week or so.</p>
+        <p id="backupInfo" class="muted"></p>
+        <button id="saveBackup">Save a backup</button>
+        <p class="muted small">Choose <b>Save to Files</b> and pick iCloud Drive so it's kept off the phone too.</p>
+      </div>
+      <div class="card">
+        <h3>Restore from a backup</h3>
+        <p class="muted small">Use this on a new phone, after reinstalling, or to bring in a backup from the PC version.
+          It replaces what's on this phone.</p>
+        <label class="button secondary file-btn">Choose backup file
+          <input type="file" id="restoreFile" accept=".json,application/json" hidden></label>
+      </div>
+    </section>
+  </main>
+
+  <!-- FOOD EDITOR -->
+  <dialog id="foodDialog">
+    <form method="dialog" id="foodForm">
+      <h2 id="foodDialogTitle">New food</h2>
+      <div class="row">
+        <label>Name <input id="fdName" placeholder="e.g. Store-bought white bread" required></label>
+        <label>Brand (optional) <input id="fdBrand"></label>
+      </div>
+
+      <div class="methods">
+        <button type="button" data-method="type" class="active">Type</button>
+        <button type="button" data-method="paste">Paste label</button>
+        <button type="button" data-method="photo">Photo of label</button>
+        <button type="button" data-method="barcode">Barcode</button>
+      </div>
+
+      <div class="method" data-method="type">
+        <label>Add ingredients <input id="fdType" placeholder="Type one and press Enter, or several separated by commas"></label>
+      </div>
+      <div class="method hidden" data-method="paste">
+        <label>Ingredient list text
+          <textarea id="fdPaste" rows="5" placeholder="Paste the ingredients from the package or a website"></textarea>
+        </label>
+        <button type="button" id="fdParse" class="secondary">Pull out ingredients</button>
+      </div>
+      <div class="method hidden" data-method="photo">
+        <p class="muted">Take or choose a clear, close-up photo of just the ingredient list. Good light and a flat label help a lot.</p>
+        <label class="button secondary file-btn">Take or choose photo
+          <input type="file" id="fdPhoto" accept="image/*" hidden></label>
+        <img id="fdPreview" class="preview hidden" alt="Label photo">
+        <p id="fdOcrStatus" class="muted"></p>
+      </div>
+      <div class="method hidden" data-method="barcode">
+        <div class="actions">
+          <button type="button" id="fdScan">Scan with camera</button>
+          <label class="button secondary file-btn">Photo of barcode
+            <input type="file" id="fdBarcodePhoto" accept="image/*" hidden></label>
+          <button type="button" id="fdScanStop" class="secondary hidden">Stop camera</button>
+        </div>
+        <div id="fdScanner" class="scanner hidden"></div>
+        <div id="fdScanFile" class="hidden"></div>
+        <div class="row">
+          <label>Or type the barcode number <input id="fdBarcode" inputmode="numeric" placeholder="The digits under the barcode"></label>
+          <button type="button" id="fdLookup" class="secondary">Look up</button>
+        </div>
+        <p id="fdBarcodeStatus" class="muted">Looks the product up in Open Food Facts, a free public database.</p>
+      </div>
+
+      <h3>Ingredients <span id="fdCount" class="muted"></span></h3>
+      <div id="fdChips" class="chips"></div>
+      <p class="muted small">Click an × to remove one. Check them against the label, especially after a photo.</p>
+
+      <label class="check" id="fdSaveWrap"><input type="checkbox" id="fdSave" checked> Save to My foods so I can reuse it</label>
+      <p id="fdError" class="error"></p>
+      <div class="actions">
+        <button type="button" id="fdOk">Add</button>
+        <button type="button" id="fdCancel" class="secondary">Cancel</button>
+      </div>
+    </form>
+  </dialog>
+
+  <div id="toast" class="toast hidden"></div>
+  <script src="logic.js"></script>
+  <script src="store.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
