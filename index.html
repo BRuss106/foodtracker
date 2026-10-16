@@ -7,56 +7,74 @@
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-title" content="FoodTracker">
-  <meta name="apple-mobile-web-app-status-bar-style" content="default">
-  <meta name="theme-color" content="#2f7d6d">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="theme-color" content="#0d5c55">
   <link rel="apple-touch-icon" href="icon-180.png">
   <link rel="icon" href="icon-192.png">
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
-  <header>
-    <h1>FoodTracker</h1>
-    <nav id="tabs">
-      <button data-view="meal" class="active">Log meal</button>
-      <button data-view="symptom">Log symptom</button>
-      <button data-view="timeline">Timeline</button>
-      <button data-view="triggers">Likely triggers</button>
-      <button data-view="foods">My foods</button>
-      <button data-view="ingredients">Ingredients</button>
-      <button data-view="backup">Backup</button>
-    </nav>
+  <header class="hero">
+    <div class="blob b1"></div><div class="blob b2"></div><div class="blob b3"></div>
+    <div class="hero-inner">
+      <div class="brand-row">
+        <div class="logo" aria-hidden="true">
+          <svg viewBox="0 0 32 32"><circle cx="16" cy="16" r="13" fill="none" stroke="currentColor" stroke-width="2.4"/>
+            <path d="M11 21c0-6 4-10 10-10 0 6-4 10-10 10Z" fill="currentColor"/></svg>
+        </div>
+        <div>
+          <div class="brand">FoodTracker</div>
+          <div id="heroDate" class="hero-date"></div>
+        </div>
+      </div>
+      <h1 id="heroGreeting" class="greeting">Hello</h1>
+      <div class="stats">
+        <div class="stat"><span id="statMeals" class="stat-num">0</span><span class="stat-label">meals today</span></div>
+        <div class="stat"><span id="statSymptoms" class="stat-num">0</span><span class="stat-label">symptoms today</span></div>
+        <div class="stat"><span id="statStreak" class="stat-num">0</span><span class="stat-label">day streak</span></div>
+      </div>
+    </div>
   </header>
 
   <main>
-    <button id="backupNudge" class="nudge hidden">Your log is only on this phone. Tap to save a backup.</button>
+    <button id="backupNudge" class="nudge hidden">
+      <span class="nudge-icon">☁️</span>
+      <span><b>Back up your log</b><br><span class="small">It only lives on this phone. Tap to save a copy.</span></span>
+    </button>
+
     <!-- LOG MEAL -->
     <section id="view-meal" class="view active">
-      <h2 id="mealTitle">Log a meal</h2>
+      <h2 id="mealTitle" class="view-title">Log a meal</h2>
       <div class="card">
-        <div class="row">
-          <label>When <input type="datetime-local" id="mealAt"></label>
-          <label>Meal
-            <select id="mealLabel">
-              <option>Breakfast</option><option>Lunch</option><option>Dinner</option>
-              <option>Snack</option><option>Drink</option><option value="">Other</option>
-            </select>
-          </label>
+        <div class="pills" id="mealPills">
+          <button type="button" data-label="Breakfast"><span>☀️</span>Breakfast</button>
+          <button type="button" data-label="Lunch"><span>🥗</span>Lunch</button>
+          <button type="button" data-label="Dinner"><span>🍝</span>Dinner</button>
+          <button type="button" data-label="Snack"><span>🍎</span>Snack</button>
+          <button type="button" data-label="Drink"><span>☕</span>Drink</button>
         </div>
+        <select id="mealLabel" class="sr-only" tabindex="-1" aria-hidden="true">
+          <option>Breakfast</option><option>Lunch</option><option>Dinner</option>
+          <option>Snack</option><option>Drink</option><option value="">Other</option>
+        </select>
+        <label>When <input type="datetime-local" id="mealAt"></label>
 
         <h3>What was in it?</h3>
         <div class="search-wrap">
-          <input id="foodSearch" placeholder="Search my saved foods..." autocomplete="off">
+          <svg class="search-icon" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+          <input id="foodSearch" placeholder="Search my saved foods" autocomplete="off">
           <div id="foodResults" class="dropdown hidden"></div>
         </div>
-        <button id="newFoodForMeal" class="secondary">+ Add a new food or ingredients</button>
+        <button id="newFoodForMeal" class="add-btn"><span class="plus">+</span> Add a new food or ingredients</button>
 
         <ul id="mealItems" class="items"></ul>
-        <p id="mealEmpty" class="muted">Nothing added yet.</p>
+        <p id="mealEmpty" class="empty-state">Your plate is empty. Add a food above.</p>
 
-        <label>Notes (optional) <textarea id="mealNotes" rows="2" placeholder="e.g. ate out, large portion, ate fast"></textarea></label>
+        <label>Notes <span class="optional">optional</span>
+          <textarea id="mealNotes" rows="2" placeholder="e.g. ate out, large portion, ate fast"></textarea></label>
         <div class="actions">
-          <button id="saveMeal">Save meal</button>
+          <button id="saveMeal" class="primary wide">Save meal</button>
           <button id="cancelMealEdit" class="secondary hidden">Cancel editing</button>
         </div>
       </div>
@@ -64,45 +82,54 @@
 
     <!-- LOG SYMPTOM -->
     <section id="view-symptom" class="view">
-      <h2 id="symptomTitle">Log a symptom</h2>
+      <h2 id="symptomTitle" class="view-title">Log a symptom</h2>
       <div class="card">
-        <label>Symptom
-          <input id="symptomKind" list="kindList" placeholder="Pick one below or type your own">
+        <label>What are you feeling?
+          <input id="symptomKind" list="kindList" placeholder="Tap one below or type your own">
           <datalist id="kindList"></datalist>
         </label>
         <div id="kindButtons" class="quick"></div>
         <label>When did it start? <input type="datetime-local" id="symptomAt"></label>
-        <label>How bad? <span id="sevValue" class="sev">5</span>/10
-          <input type="range" id="symptomSev" min="1" max="10" value="5">
-          <span class="scale"><span>1 mild</span><span>10 worst</span></span>
-        </label>
-        <label>Notes (optional) <textarea id="symptomNotes" rows="2" placeholder="e.g. lasted 3 hours, also had poor sleep"></textarea></label>
+
+        <div class="sev-box">
+          <div class="sev-head">
+            <span class="sev-q">How bad is it?</span>
+            <span class="sev-readout"><span id="sevValue" class="sev-num">5</span><span class="sev-of">/10</span></span>
+          </div>
+          <div id="sevWord" class="sev-word">Moderate</div>
+          <input type="range" id="symptomSev" min="1" max="10" value="5" aria-label="Severity from 1 to 10">
+          <div class="scale"><span>Mild</span><span>Worst</span></div>
+        </div>
+
+        <label>Notes <span class="optional">optional</span>
+          <textarea id="symptomNotes" rows="2" placeholder="e.g. lasted 3 hours, also had poor sleep"></textarea></label>
         <div class="actions">
-          <button id="saveSymptom">Save symptom</button>
+          <button id="saveSymptom" class="primary coral wide">Save symptom</button>
           <button id="cancelSymptomEdit" class="secondary hidden">Cancel editing</button>
         </div>
       </div>
-      <p class="muted tip">Tip: the analysis treats "no symptom logged" as "felt fine", so try to log every episode, even mild ones.</p>
+      <p class="tip">💡 The analysis treats "nothing logged" as "felt fine", so log every episode, even mild ones.</p>
     </section>
 
     <!-- TIMELINE -->
     <section id="view-timeline" class="view">
       <div class="title-row">
-        <h2>Timeline</h2>
-        <button id="exportCsv" class="secondary">Export spreadsheet for the doctor</button>
+        <h2 class="view-title">Timeline</h2>
+        <button id="exportCsv" class="secondary small-btn">⇪ Export for doctor</button>
       </div>
       <div id="timeline"></div>
     </section>
 
     <!-- TRIGGERS -->
     <section id="view-triggers" class="view">
-      <h2>Likely triggers</h2>
+      <h2 class="view-title">Likely triggers</h2>
       <div class="notice">
-        These are <b>patterns in your log, not a diagnosis</b>. An ingredient showing up here means symptoms
-        happened more often after eating it. It does not prove it caused them. Bring this list to a doctor or
-        dietitian, who can help confirm it safely (for example with a supervised elimination diet).
+        <span class="notice-icon">🩺</span>
+        <span>These are <b>patterns in your log, not a diagnosis</b>. Symptoms happened more often after these
+        ingredients, which doesn't prove they caused them. Bring the list to a doctor or dietitian, who can help
+        confirm it safely (for example with a supervised elimination diet).</span>
       </div>
-      <div class="card">
+      <div class="card controls">
         <div class="row">
           <label>Symptom <select id="trigKind"></select></label>
           <label>Reaction window
@@ -116,9 +143,9 @@
           <label id="customWindow" class="hidden">From <input type="number" id="trigMin" value="2" min="0" step="1"> to
             <input type="number" id="trigMax" value="48" min="1" step="1"> hours</label>
         </div>
-        <label class="check"><input type="checkbox" id="trigAll"> Show every ingredient, not just the top ones</label>
+        <label class="switch"><input type="checkbox" id="trigAll"><span class="track"></span> Show every ingredient</label>
       </div>
-      <p id="trigSummary"></p>
+      <div id="trigSummary" class="summary"></div>
       <div id="trigTable"></div>
       <details class="help">
         <summary>How is this worked out?</summary>
@@ -138,33 +165,47 @@
       </details>
     </section>
 
+    <!-- MORE -->
+    <section id="view-more" class="view">
+      <h2 class="view-title">More</h2>
+      <div class="menu">
+        <button data-goto="foods"><span class="menu-icon">🍱</span><span><b>My foods</b><br><span class="small muted">Saved foods and their ingredients</span></span><span class="chev">›</span></button>
+        <button data-goto="ingredients"><span class="menu-icon">🧪</span><span><b>Ingredients</b><br><span class="small muted">Fix and merge spellings</span></span><span class="chev">›</span></button>
+        <button data-goto="backup"><span class="menu-icon">☁️</span><span><b>Backup</b><br><span class="small muted">Save or restore your log</span></span><span class="chev">›</span></button>
+      </div>
+    </section>
+
     <!-- FOODS -->
     <section id="view-foods" class="view">
+      <button class="back" data-goto="more">‹ More</button>
       <div class="title-row">
-        <h2>My foods</h2>
-        <button id="newFood">+ New food</button>
+        <h2 class="view-title">My foods</h2>
+        <button id="newFood" class="primary small-btn">+ New food</button>
       </div>
-      <input id="foodsFilter" placeholder="Filter...">
+      <input id="foodsFilter" class="filter" placeholder="Filter foods or ingredients">
       <div id="foodsList"></div>
     </section>
 
     <!-- INGREDIENTS -->
     <section id="view-ingredients" class="view">
-      <h2>Ingredients</h2>
+      <button class="back" data-goto="more">‹ More</button>
+      <h2 class="view-title">Ingredients</h2>
       <p class="muted">Labels and photos sometimes spell the same thing differently ("soya lecithin", "soy lecithin").
         Merge duplicates here so the analysis counts them together. Renaming one to an existing name merges them too.</p>
-      <input id="ingFilter" placeholder="Filter...">
+      <input id="ingFilter" class="filter" placeholder="Filter">
       <div id="ingList"></div>
     </section>
 
     <!-- BACKUP -->
     <section id="view-backup" class="view">
-      <h2>Backup</h2>
+      <button class="back" data-goto="more">‹ More</button>
+      <h2 class="view-title">Backup</h2>
       <div class="card">
+        <div class="big-icon">☁️</div>
         <p>Everything is stored only on this phone. Nothing is sent anywhere. If the app is deleted or the
           phone is lost, the log goes with it, so save a backup every week or so.</p>
         <p id="backupInfo" class="muted"></p>
-        <button id="saveBackup">Save a backup</button>
+        <button id="saveBackup" class="primary wide">Save a backup</button>
         <p class="muted small">Choose <b>Save to Files</b> and pick iCloud Drive so it's kept off the phone too.</p>
       </div>
       <div class="card">
@@ -177,24 +218,43 @@
     </section>
   </main>
 
+  <nav id="tabs" class="tabbar" aria-label="Sections">
+    <button data-view="meal" class="active">
+      <svg viewBox="0 0 24 24"><path d="M7 3v8M5 3v5a2 2 0 0 0 4 0V3M7 11v10"/><path d="M17 21V3c-2.2 1.2-3.5 3.6-3.5 6.5V13H17"/></svg>
+      <span>Meal</span></button>
+    <button data-view="symptom">
+      <svg viewBox="0 0 24 24"><path d="M3 12h4l2.5-6 4 12 2.5-6H21"/></svg>
+      <span>Symptom</span></button>
+    <button data-view="timeline">
+      <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>
+      <span>Timeline</span></button>
+    <button data-view="triggers">
+      <svg viewBox="0 0 24 24"><path d="M12 3l1.9 5.1L19 10l-5.1 1.9L12 17l-1.9-5.1L5 10l5.1-1.9Z"/><path d="M19 16l.8 2.2L22 19l-2.2.8L19 22l-.8-2.2L16 19l2.2-.8Z"/></svg>
+      <span>Triggers</span></button>
+    <button data-view="more">
+      <svg viewBox="0 0 24 24"><circle cx="5" cy="12" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="19" cy="12" r="1.6"/></svg>
+      <span>More</span></button>
+  </nav>
+
   <!-- FOOD EDITOR -->
   <dialog id="foodDialog">
     <form method="dialog" id="foodForm">
+      <div class="grabber"></div>
       <h2 id="foodDialogTitle">New food</h2>
       <div class="row">
         <label>Name <input id="fdName" placeholder="e.g. Store-bought white bread" required></label>
-        <label>Brand (optional) <input id="fdBrand"></label>
+        <label>Brand <span class="optional">optional</span><input id="fdBrand"></label>
       </div>
 
       <div class="methods">
-        <button type="button" data-method="type" class="active">Type</button>
-        <button type="button" data-method="paste">Paste label</button>
-        <button type="button" data-method="photo">Photo of label</button>
-        <button type="button" data-method="barcode">Barcode</button>
+        <button type="button" data-method="type" class="active"><span>⌨️</span>Type</button>
+        <button type="button" data-method="paste"><span>📋</span>Paste</button>
+        <button type="button" data-method="photo"><span>📷</span>Label photo</button>
+        <button type="button" data-method="barcode"><span>▥</span>Barcode</button>
       </div>
 
       <div class="method" data-method="type">
-        <label>Add ingredients <input id="fdType" placeholder="Type one and press Enter, or several separated by commas"></label>
+        <label>Add ingredients <input id="fdType" placeholder="Type one and press Enter, or several with commas"></label>
       </div>
       <div class="method hidden" data-method="paste">
         <label>Ingredient list text
@@ -204,14 +264,14 @@
       </div>
       <div class="method hidden" data-method="photo">
         <p class="muted">Take or choose a clear, close-up photo of just the ingredient list. Good light and a flat label help a lot.</p>
-        <label class="button secondary file-btn">Take or choose photo
+        <label class="button primary file-btn">📷 Take or choose photo
           <input type="file" id="fdPhoto" accept="image/*" hidden></label>
         <img id="fdPreview" class="preview hidden" alt="Label photo">
         <p id="fdOcrStatus" class="muted"></p>
       </div>
       <div class="method hidden" data-method="barcode">
         <div class="actions">
-          <button type="button" id="fdScan">Scan with camera</button>
+          <button type="button" id="fdScan" class="primary">Scan with camera</button>
           <label class="button secondary file-btn">Photo of barcode
             <input type="file" id="fdBarcodePhoto" accept="image/*" hidden></label>
           <button type="button" id="fdScanStop" class="secondary hidden">Stop camera</button>
@@ -225,20 +285,20 @@
         <p id="fdBarcodeStatus" class="muted">Looks the product up in Open Food Facts, a free public database.</p>
       </div>
 
-      <h3>Ingredients <span id="fdCount" class="muted"></span></h3>
+      <h3>Ingredients <span id="fdCount" class="count"></span></h3>
       <div id="fdChips" class="chips"></div>
-      <p class="muted small">Click an × to remove one. Check them against the label, especially after a photo.</p>
+      <p class="muted small">Tap × to remove one. Check them against the label, especially after a photo.</p>
 
-      <label class="check" id="fdSaveWrap"><input type="checkbox" id="fdSave" checked> Save to My foods so I can reuse it</label>
+      <label class="switch" id="fdSaveWrap"><input type="checkbox" id="fdSave" checked><span class="track"></span> Save to My foods for next time</label>
       <p id="fdError" class="error"></p>
       <div class="actions">
-        <button type="button" id="fdOk">Add</button>
+        <button type="button" id="fdOk" class="primary wide">Add</button>
         <button type="button" id="fdCancel" class="secondary">Cancel</button>
       </div>
     </form>
   </dialog>
 
-  <div id="toast" class="toast hidden"></div>
+  <div id="toast" class="toast hidden" role="status"></div>
   <script src="logic.js"></script>
   <script src="store.js"></script>
   <script src="app.js"></script>

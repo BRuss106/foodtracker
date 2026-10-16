@@ -107,7 +107,7 @@ function symptomFields(b) {
 }
 
 function symptomKinds() {
-  const defaults = ["Stomach ache", "Bloating", "Headache", "Nausea", "Diarrhea",
+  const defaults = ["Stomach ache", "Bloating", "Headache", "Nausea", "Diarrhea", "Constipation",
     "Fatigue", "Skin rash / hives", "Brain fog", "Heartburn"];
   const counts = new Map();
   for (const s of data.symptoms) counts.set(s.kind, (counts.get(s.kind) || 0) + 1);

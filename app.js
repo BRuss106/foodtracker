@@ -35,14 +35,66 @@ function fmtDay(s) {
   return new Date(s).toLocaleDateString([], { weekday: "long", month: "long", day: "numeric", year: "numeric" });
 }
 
+// Success messages get an animated tick; anything that sounds like a problem gets a plain "i".
 let toastTimer;
 function toast(msg) {
   const t = $("#toast");
-  t.textContent = msg;
-  t.classList.remove("hidden");
+  const ok = /saved|updated|added|restored|renamed|merged|found|read the label/i.test(msg);
+  t.className = "toast" + (ok ? "" : " info");
+  t.innerHTML = `<span class="check">${ok
+    ? '<svg viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>'
+    : '<b style="color:#fff">i</b>'}</span><span>${esc(msg)}</span>`;
   clearTimeout(toastTimer);
   toastTimer = setTimeout(() => t.classList.add("hidden"), 2600);
+  if (ok && navigator.vibrate) navigator.vibrate(12);
 }
+
+// ------------------------------------------------------------ header summary
+
+function dayKey(d) {
+  const x = new Date(d);
+  return `${x.getFullYear()}-${x.getMonth()}-${x.getDate()}`;
+}
+
+function setStat(id, value) {
+  const el = $(id);
+  if (el.textContent !== String(value)) {
+    el.textContent = value;
+    el.classList.remove("bump");
+    void el.offsetWidth; // restart the animation
+    el.classList.add("bump");
+  }
+}
+
+function renderHero() {
+  const now = new Date();
+  const h = now.getHours();
+  $("#heroGreeting").textContent = h < 5 ? "Up late?" : h < 12 ? "Good morning" : h < 17 ? "Good afternoon" : "Good evening";
+  $("#heroDate").textContent = now.toLocaleDateString([], { weekday: "long", month: "long", day: "numeric" });
+  const today = dayKey(now);
+  setStat("#statMeals", data.meals.filter((m) => dayKey(m.eaten_at) === today).length);
+  setStat("#statSymptoms", data.symptoms.filter((s) => dayKey(s.started_at) === today).length);
+  // Streak: days in a row (ending today or yesterday) with anything logged.
+  const days = new Set([...data.meals.map((m) => dayKey(m.eaten_at)), ...data.symptoms.map((s) => dayKey(s.started_at))]);
+  const d = new Date(now);
+  if (!days.has(dayKey(d))) d.setDate(d.getDate() - 1);
+  let streak = 0;
+  while (days.has(dayKey(d))) { streak++; d.setDate(d.getDate() - 1); }
+  setStat("#statStreak", streak);
+}
+
+const MEAL_EMOJI = { Breakfast: "☀️", Lunch: "🥗", Dinner: "🍝", Snack: "🍎", Drink: "☕" };
+const SYMPTOM_EMOJI = [
+  [/stomach|cramp|abdom/i, "😣"], [/bloat|gas/i, "🎈"], [/head|migraine/i, "🤕"], [/nause|sick|vomit/i, "🤢"],
+  [/constip/i, "😖"], [/diarr|bowel|toilet/i, "🚽"], [/fatigue|tired|exhaust/i, "😴"], [/rash|hive|itch|skin/i, "🔴"],
+  [/fog|focus|dizz/i, "🌫️"], [/heartburn|reflux/i, "🔥"], [/joint|ache|pain/i, "💢"],
+];
+const symptomEmoji = (k) => (SYMPTOM_EMOJI.find(([re]) => re.test(k)) || [, "•"])[1];
+
+function sevColor(v) {
+  return ["#34c38f", "#5cc77f", "#9cc95a", "#d6c54a", "#e8b43f", "#f09a3a", "#f07f3a", "#ec6640", "#e5534a", "#d93d4a"][v - 1];
+}
+const SEV_WORDS = ["Very mild", "Mild", "Mild", "Moderate", "Moderate", "Moderate", "Strong", "Severe", "Severe", "Worst ever"];
 
 function guessLabel() {
   const h = new Date().getHours();
@@ -60,7 +112,8 @@ function splitTyped(text) {
 // ------------------------------------------------------------ tabs
 
 function showView(name) {
-  $$("#tabs button").forEach((b) => b.classList.toggle("active", b.dataset.view === name));
+  const tab = ["foods", "ingredients", "backup"].includes(name) ? "more" : name;
+  $$("#tabs button").forEach((b) => b.classList.toggle("active", b.dataset.view === tab));
   $$(".view").forEach((v) => v.classList.toggle("active", v.id === "view-" + name));
   if (name === "timeline") loadTimeline();
   if (name === "triggers") loadTriggers();
@@ -71,6 +124,7 @@ function showView(name) {
   window.scrollTo(0, 0);
 }
 $$("#tabs button").forEach((b) => b.addEventListener("click", () => showView(b.dataset.view)));
+$$("[data-goto]").forEach((b) => b.addEventListener("click", () => showView(b.dataset.goto)));
 
 // ------------------------------------------------------------ food editor dialog
 
@@ -342,18 +396,27 @@ function resetMealForm() {
   state.mealItems = [];
   $("#mealTitle").textContent = "Log a meal";
   $("#mealAt").value = nowLocal();
-  $("#mealLabel").value = guessLabel();
+  setMealLabel(guessLabel());
   $("#mealNotes").value = "";
   $("#saveMeal").textContent = "Save meal";
   $("#cancelMealEdit").classList.add("hidden");
   renderMealItems();
 }
 
+function setMealLabel(label) {
+  $("#mealLabel").value = label;
+  $$("#mealPills button").forEach((b) => b.classList.toggle("active", b.dataset.label === label));
+}
+$("#mealPills").addEventListener("click", (e) => {
+  const b = e.target.closest("button");
+  if (b) setMealLabel(b.dataset.label);
+});
+
 function renderMealItems() {
   $("#mealItems").innerHTML = state.mealItems.map((it, i) => `
     <li><div><b>${esc(it.name)}</b>
       <div class="ings">${esc(it.ingredients.join(", "))}</div></div>
-      <button class="small danger" data-i="${i}">Remove</button></li>`).join("");
+      <button class="small danger" data-i="${i}" aria-label="Remove ${esc(it.name)}">Remove</button></li>`).join("");
   $("#mealEmpty").classList.toggle("hidden", state.mealItems.length > 0);
 }
 $("#mealItems").addEventListener("click", (e) => {
@@ -424,6 +487,7 @@ $("#saveMeal").addEventListener("click", async () => {
       resetMealForm();
     }
     loadFoods();
+    renderHero();
   } catch (err) { toast(err.message); }
 });
 $("#cancelMealEdit").addEventListener("click", () => { resetMealForm(); showView("timeline"); });
@@ -436,7 +500,7 @@ function editMeal(meal) {
     : { name: it.name, ingredients: it.ingredients });
   $("#mealTitle").textContent = "Edit meal";
   $("#mealAt").value = meal.eaten_at;
-  $("#mealLabel").value = meal.label;
+  setMealLabel(meal.label);
   $("#mealNotes").value = meal.notes;
   $("#saveMeal").textContent = "Save changes";
   $("#cancelMealEdit").classList.remove("hidden");
@@ -449,22 +513,39 @@ function editMeal(meal) {
 async function loadKinds() {
   const kinds = await api("symptom-kinds");
   $("#kindList").innerHTML = kinds.map((k) => `<option value="${esc(k)}">`).join("");
-  $("#kindButtons").innerHTML = kinds.slice(0, 9).map((k) =>
-    `<button type="button" class="secondary" data-kind="${esc(k)}">${esc(k)}</button>`).join("");
+  $("#kindButtons").innerHTML = kinds.slice(0, 12).map((k) =>
+    `<button type="button" data-kind="${esc(k)}">${symptomEmoji(k)} ${esc(k)}</button>`).join("");
+  markKind();
   return kinds;
 }
+function markKind() {
+  const v = $("#symptomKind").value.trim().toLowerCase();
+  $$("#kindButtons button").forEach((b) => b.classList.toggle("active", b.dataset.kind.toLowerCase() === v));
+}
 $("#kindButtons").addEventListener("click", (e) => {
-  if (e.target.dataset.kind) $("#symptomKind").value = e.target.dataset.kind;
+  const b = e.target.closest("button");
+  if (b) { $("#symptomKind").value = b.dataset.kind; markKind(); }
 });
-$("#symptomSev").addEventListener("input", (e) => { $("#sevValue").textContent = e.target.value; });
+$("#symptomKind").addEventListener("input", markKind);
+
+function setSeverity(v, animate = true) {
+  v = Number(v);
+  $("#symptomSev").value = v;
+  const num = $("#sevValue");
+  num.textContent = v;
+  $("#sevWord").textContent = SEV_WORDS[v - 1];
+  document.querySelector(".sev-box").style.setProperty("--sev-color", sevColor(v));
+  if (animate) { num.classList.remove("bump"); void num.offsetWidth; num.classList.add("bump"); }
+}
+$("#symptomSev").addEventListener("input", (e) => setSeverity(e.target.value));
 
 function resetSymptomForm() {
   state.editingSymptomId = null;
   $("#symptomTitle").textContent = "Log a symptom";
   $("#symptomKind").value = "";
   $("#symptomAt").value = nowLocal();
-  $("#symptomSev").value = 5;
-  $("#sevValue").textContent = "5";
+  setSeverity(5, false);
+  markKind();
   $("#symptomNotes").value = "";
   $("#saveSymptom").textContent = "Save symptom";
   $("#cancelSymptomEdit").classList.add("hidden");
@@ -490,6 +571,7 @@ $("#saveSymptom").addEventListener("click", async () => {
       resetSymptomForm();
       loadKinds();
     }
+    renderHero();
   } catch (err) { toast(err.message); }
 });
 $("#cancelSymptomEdit").addEventListener("click", () => { resetSymptomForm(); showView("timeline"); });
@@ -499,8 +581,8 @@ function editSymptom(s) {
   $("#symptomTitle").textContent = "Edit symptom";
   $("#symptomKind").value = s.kind;
   $("#symptomAt").value = s.started_at;
-  $("#symptomSev").value = s.severity;
-  $("#sevValue").textContent = s.severity;
+  setSeverity(s.severity, false);
+  markKind();
   $("#symptomNotes").value = s.notes;
   $("#saveSymptom").textContent = "Save changes";
   $("#cancelSymptomEdit").classList.remove("hidden");
@@ -520,17 +602,27 @@ async function loadTimeline() {
   ].sort((a, b) => b.at.localeCompare(a.at));
 
   if (!entries.length) {
-    $("#timeline").innerHTML = `<p class="muted">Nothing logged yet. Start with "Log meal" or "Log symptom".</p>`;
+    $("#timeline").innerHTML = `<div class="card empty-big"><span class="emoji">🗓️</span>
+      Nothing logged yet.<br>Your meals and symptoms will line up here.</div>`;
     return;
   }
-  let html = "", day = "";
+  let html = "", day = "", n = 0;
+  const todayKey = dayKey(new Date());
+  const yest = new Date(); yest.setDate(yest.getDate() - 1);
   for (const e of entries) {
     const d = e.at.slice(0, 10);
-    if (d !== day) { if (day) html += "</div>"; day = d; html += `<div class="day"><h3>${esc(fmtDay(e.at))}</h3>`; }
+    if (d !== day) {
+      if (day) html += "</div></div>";
+      day = d;
+      const k = dayKey(e.at);
+      const title = k === todayKey ? "Today" : k === dayKey(yest) ? "Yesterday" : fmtDay(e.at);
+      html += `<div class="day"><h3>${esc(title)}</h3><div class="tl">`;
+    }
+    const delay = `style="animation-delay:${Math.min(n++, 12) * 35}ms"`;
     if (e.type === "meal") {
       const m = e.data;
-      html += `<div class="entry"><div>
-        <div class="time">${esc(fmtTime(m.eaten_at))} · ${esc(m.label || "Meal")}</div>
+      html += `<div class="entry" ${delay}><div>
+        <div class="time">${MEAL_EMOJI[m.label] || "🍽️"} ${esc(fmtTime(m.eaten_at))} · ${esc(m.label || "Meal")}</div>
         ${m.items.map((it) => `<div><b>${esc(it.name)}</b> <span class="muted small">${esc(it.ingredients.join(", "))}</span></div>`).join("")}
         ${m.notes ? `<div class="muted small">${esc(m.notes)}</div>` : ""}
         </div><div class="btns">
@@ -538,16 +630,16 @@ async function loadTimeline() {
         <button class="small danger" data-act="del-meal" data-id="${m.id}">Delete</button></div></div>`;
     } else {
       const s = e.data;
-      html += `<div class="entry symptom"><div>
-        <div class="time">${esc(fmtTime(s.started_at))} · Symptom</div>
-        <div><b>${esc(s.kind)}</b>, severity ${s.severity}/10</div>
+      html += `<div class="entry symptom" ${delay}><div>
+        <div class="time">${symptomEmoji(s.kind)} ${esc(fmtTime(s.started_at))} · Symptom</div>
+        <div><b>${esc(s.kind)}</b><span class="sev-pill" style="background:${sevColor(s.severity)}">${s.severity}/10</span></div>
         ${s.notes ? `<div class="muted small">${esc(s.notes)}</div>` : ""}
         </div><div class="btns">
         <button class="small secondary" data-act="edit-sym" data-id="${s.id}">Edit</button>
         <button class="small danger" data-act="del-sym" data-id="${s.id}">Delete</button></div></div>`;
     }
   }
-  $("#timeline").innerHTML = html + "</div>";
+  $("#timeline").innerHTML = html + "</div></div>";
 }
 
 $("#timeline").addEventListener("click", async (e) => {
@@ -557,8 +649,8 @@ $("#timeline").addEventListener("click", async (e) => {
   try {
     if (act === "edit-meal") editMeal(timelineData.meals.find((m) => m.id === n));
     if (act === "edit-sym") editSymptom(timelineData.symptoms.find((s) => s.id === n));
-    if (act === "del-meal" && confirm("Delete this meal?")) { await api("meals/" + n, { method: "DELETE" }); loadTimeline(); }
-    if (act === "del-sym" && confirm("Delete this symptom?")) { await api("symptoms/" + n, { method: "DELETE" }); loadTimeline(); }
+    if (act === "del-meal" && confirm("Delete this meal?")) { await api("meals/" + n, { method: "DELETE" }); loadTimeline(); renderHero(); }
+    if (act === "del-sym" && confirm("Delete this symptom?")) { await api("symptoms/" + n, { method: "DELETE" }); loadTimeline(); renderHero(); }
   } catch (err) { toast(err.message); }
 });
 
@@ -593,34 +685,48 @@ async function loadTriggers() {
     r = await api(`triggers?min=${min}&max=${max}&kind=${encodeURIComponent(kind)}`);
   } catch (err) { $("#trigSummary").textContent = err.message; $("#trigTable").innerHTML = ""; return; }
 
-  const what = kind ? `"${kind}"` : "any symptom";
-  let summary = `${r.meals_total} meals and ${r.episodes} episodes of ${what} logged over ${r.days_logged} day(s). `;
-  summary += `${r.meals_judged} meals are old enough to judge; ${r.meals_followed} of them were followed by ${what} within ${min} to ${max} hours.`;
+  const what = kind ? `"${esc(kind)}"` : "any symptom";
+  let summary = `<b>${r.meals_total}</b> meals and <b>${r.episodes}</b> episodes of ${what} over <b>${r.days_logged}</b> day(s). `;
+  summary += `${r.meals_judged} meals are old enough to judge; ${r.meals_followed} were followed by ${what} within ${esc(min)} to ${esc(max)} hours.`;
   if (r.meals_judged < 20 || r.episodes < 3) {
     summary += " Keep logging: patterns usually need 2 to 4 weeks of meals and several symptom episodes before they mean much.";
   }
-  $("#trigSummary").textContent = summary;
+  $("#trigSummary").innerHTML = summary;
 
   let rows = r.rows;
   if (!$("#trigAll").checked) rows = rows.filter((x) => x.level === "Stronger signal" || x.level === "Possible").concat(
     rows.filter((x) => x.level !== "Stronger signal" && x.level !== "Possible" && x.followed_with > 0).slice(0, 10));
   if (!rows.length) {
-    $("#trigTable").innerHTML = `<p class="muted">${r.rows.length ? "No ingredient stands out yet. Tick \"Show every ingredient\" to see the full list." : "Not enough data yet."}</p>`;
+    $("#trigTable").innerHTML = `<div class="card empty-big"><span class="emoji">🔍</span>${r.rows.length
+      ? "No ingredient stands out yet.<br>Turn on \"Show every ingredient\" to see the full list."
+      : "Not enough data yet.<br>Log meals and symptoms for a couple of weeks and patterns will appear here."}</div>`;
     return;
   }
-  $("#trigTable").innerHTML = `<div class="table-wrap"><table>
-    <thead><tr><th>Ingredient</th><th>Signal</th><th>After meals with it</th><th>After meals without it</th>
-    <th>Times more often</th><th>Before episodes</th><th>Avg severity</th><th>Note</th></tr></thead>
-    <tbody>${rows.map((x) => `<tr>
-      <td><b>${esc(x.ingredient)}</b></td>
-      <td><span class="badge ${BADGE[x.level]}">${esc(x.level)}</span></td>
-      <td class="num" data-label="After meals with it">${x.followed_with} of ${x.meals_with} (${pct(x.rate_with)})</td>
-      <td class="num" data-label="After meals without it">${x.meals_without ? `${x.followed_without} of ${x.meals_without} (${pct(x.rate_without)})` : "–"}</td>
-      <td class="num" data-label="Times more often">${x.ratio === null ? "–" : x.ratio + "×"}</td>
-      <td class="num" data-label="Before episodes">${x.episodes_preceded} of ${r.episodes}</td>
-      <td class="num" data-label="Avg severity">${x.avg_severity ?? "–"}</td>
-      <td class="small muted${x.eaten_together_with?.length ? "" : " empty"}">${x.eaten_together_with?.length ? "Always eaten with: " + esc(x.eaten_together_with.join(", ")) : ""}</td>
-    </tr>`).join("")}</tbody></table></div>`;
+  const levelClass = { "Stronger signal": "lvl-strong", "Possible": "lvl-possible" };
+  $("#trigTable").innerHTML = rows.map((x, i) => `
+    <div class="trig-card ${levelClass[x.level] || ""}" style="animation-delay:${Math.min(i, 10) * 50}ms">
+      <div class="trig-head">
+        <span class="trig-name">${esc(x.ingredient)}</span>
+        <span class="badge ${BADGE[x.level]}">${esc(x.level)}</span>
+      </div>
+      <div class="bar-row">
+        <span class="lbl">Symptom after meals with it</span><span class="val">${x.followed_with} of ${x.meals_with} · ${pct(x.rate_with)}</span>
+        <div class="bar with"><i data-w="${Math.round((x.rate_with || 0) * 100)}"></i></div>
+      </div>
+      <div class="bar-row">
+        <span class="lbl">After meals without it</span><span class="val">${x.meals_without ? `${x.followed_without} of ${x.meals_without} · ${pct(x.rate_without)}` : "–"}</span>
+        <div class="bar without"><i data-w="${Math.round((x.rate_without || 0) * 100)}"></i></div>
+      </div>
+      <div class="facts">
+        ${x.ratio === null ? "" : `<span class="fact"><b>${x.ratio}×</b> more often</span>`}
+        <span class="fact">Before <b>${x.episodes_preceded} of ${r.episodes}</b> episodes</span>
+        ${x.avg_severity === null ? "" : `<span class="fact">Avg severity <b>${x.avg_severity}</b></span>`}
+      </div>
+      ${x.eaten_together_with?.length ? `<div class="together">🔗 Always eaten with ${esc(x.eaten_together_with.join(", "))}</div>` : ""}
+    </div>`).join("");
+  // Grow the bars in after the cards appear.
+  requestAnimationFrame(() => setTimeout(() =>
+    $$("#trigTable .bar i").forEach((b) => { b.style.width = b.dataset.w + "%"; }), 120));
 }
 ["#trigKind", "#trigPreset", "#trigMin", "#trigMax", "#trigAll"].forEach((s) =>
   $(s).addEventListener("change", loadTriggers));
@@ -770,6 +876,7 @@ $("#restoreFile").addEventListener("change", async (e) => {
     await saveStore();
     await loadFoods();
     renderBackupInfo();
+    renderHero();
     toast("Backup restored");
   } catch (err) { toast(err.message); }
 });
@@ -791,6 +898,7 @@ async function start() {
   loadFoods();
   loadKinds();
   renderBackupInfo();
+  renderHero();
   if ("serviceWorker" in navigator && location.protocol !== "file:") {
     navigator.serviceWorker.register("sw.js").catch(() => {});
   }
